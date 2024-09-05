@@ -9,20 +9,34 @@ from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 from pymongo.server_api import ServerApi
 
+from config import MONGODB_URI, DATABASE_NAME, COLLECTION_NAME, TMDB_API_KEY, DISCORD_BOT_TOKEN
 
-# Set up MongoDB connection
-uri = 'blank'
+
+client = MongoClient(MONGODB_URI, server_api=ServerApi('1'))
+db = client[DATABASE_NAME][COLLECTION_NAME]
+
+
 tmdb = TMDb()
-tmdb_api_key = 'blank'
-
-client = MongoClient(uri, server_api=ServerApi('1'))
-db = client['movies']['movie_collection']
+tmdb.api_key = TMDB_API_KEY
 
 # Create the aiohttp client session with the SSL context
 ssl_context = ssl.create_default_context(cafile=certifi.where())
 session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ssl_context))
 
+
 class MyClient(discord.Client):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.session = None
+
+    async def setup_hook(self) -> None:
+        # Create the aiohttp client session with the SSL context
+        ssl_context = ssl.create_default_context(cafile=certifi.where())
+        self.session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ssl_context))
+
+    async def close(self):
+        await self.session.close()
+        await super().close()
     async def on_ready(self):
         print(f'Logged on as {self.user}!')
 
@@ -105,18 +119,30 @@ class MyClient(discord.Client):
                 await message.channel.send('No movies found.')
 
 def select_random_movie():
-    # Fetch all movies from the MongoDB collection
-    movies = list_movies().split('\n')
+    # Count the number of movies in the collection
+    movie_count = db.movies.count_documents({})
 
-    # Remove the last empty item (caused by the split)
-    movies = movies[:-1]
-
-    if movies:
-        # Select a random movie from the list
-        random_movie = random.choice(movies)
-        return f'Randomly selected movie:\n{random_movie}'
-    else:
+    if movie_count == 0:
         return "No movies found."
+
+    # Generate a random index
+    random_index = random.randint(0, movie_count - 1)
+
+    # Fetch a random movie document
+    random_movie = db.movies.find().limit(1).skip(random_index).next()
+
+    # Format the movie details
+    movie_details = (
+        f"Randomly selected movie:\n"
+        f"Name: {random_movie.get('name', 'N/A')}\n"
+        f"Title: {random_movie.get('title', 'N/A')}\n"
+        f"Release Year: {random_movie.get('release_year', 'N/A')}\n"
+        f"Where to Watch: {', '.join(random_movie.get('where_to_watch_services', ['N/A']))}\n"
+        f"Rating: {random_movie.get('rating', 'N/A')}"
+    )
+
+    return movie_details
+
 
 
 def movie_exists(movie_name):
@@ -125,7 +151,7 @@ def movie_exists(movie_name):
     return result is not None
 
 #add the streaming services when inserting into the movie list to save api calls
-# to improve response time and performance at the reduction of timely accuracy
+#to improve response time and performance at the reduction of timely accuracy
 
 
 def insert_movie(movie_name):
@@ -139,7 +165,7 @@ def insert_movie(movie_name):
 
             return (capitalized_name, "already exists. Try another movie.")
         # Search for the movie using the TMDb API
-        tmdb_search_url = f'https://api.themoviedb.org/3/search/movie?api_key={tmdb_api_key}&query={capitalized_name}'
+        tmdb_search_url = f'https://api.themoviedb.org/3/search/movie?api_key={tmdb.api_key}&query={capitalized_name}'
         response = requests.get(tmdb_search_url)
 
         if response.status_code == 200:
@@ -178,7 +204,7 @@ def insert_movie(movie_name):
 def get_where_to_watch_services(tmdb_id):
     streaming_providers = []
     try:
-        tmdb_watch_providers_url = f'https://api.themoviedb.org/3/movie/{tmdb_id}/watch/providers?api_key={tmdb_api_key}'
+        tmdb_watch_providers_url = f'https://api.themoviedb.org/3/movie/{tmdb_id}/watch/providers?api_key={tmdb.api_key}'
         response = requests.get(tmdb_watch_providers_url)
 
         if response.status_code == 200:
@@ -268,7 +294,7 @@ def capitalize_movie_name(movie_name):
         words[0] = words[0].capitalize()
 
     # Capitalize other words unless they are in the excluded list
-    # this is like some leetcode answer somewhere i bet
+    # this is like some leetcode answer somewhere I bet
     for i in range(1, len(words)):
         if words[i].lower() not in excluded_words:
             words[i] = words[i].capitalize()
@@ -282,4 +308,15 @@ intents.message_content = True
 
 # Create and run the client
 client = MyClient(intents=intents)
-client.run('blank')
+client.run(DISCORD_BOT_TOKEN)
+
+
+
+async def main():
+    async with MyClient(intents=intents) as client:
+        await client.start(DISCORD_BOT_TOKEN)
+
+# Run the bot
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
