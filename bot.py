@@ -19,15 +19,15 @@ db = client[DATABASE_NAME][COLLECTION_NAME]
 tmdb = TMDb()
 tmdb.api_key = TMDB_API_KEY
 
-# Create the aiohttp client session with the SSL context
-ssl_context = ssl.create_default_context(cafile=certifi.where())
-session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ssl_context))
 
 
 class MyClient(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.session = None
+        self.prefix = "!" # Default
+
+
 
     async def setup_hook(self) -> None:
         # Create the aiohttp client session with the SSL context
@@ -37,6 +37,7 @@ class MyClient(discord.Client):
     async def close(self):
         await self.session.close()
         await super().close()
+
     async def on_ready(self):
         print(f'Logged on as {self.user}!')
 
@@ -60,7 +61,6 @@ class MyClient(discord.Client):
                 # Send a custom message for each movie added
                 await message.channel.send(f'Movie "{movie_name}" has been added to the list!')
 
-
         # Check if the message is a command to list all movies
         elif message.content == '!listmovies':
             movies = list_movies()
@@ -80,7 +80,6 @@ class MyClient(discord.Client):
                 await message.channel.send(f'Movie "{movie_name}" updated to "{updated_name}".')
 
 
-
         if message.content.startswith('!deletemovie'):
             # Extract movie name from the message
             movie_name = message.content.replace('!deletemovie ', '')
@@ -95,6 +94,17 @@ class MyClient(discord.Client):
         if message.content.startswith('!deleteall'):
             deleted_count = delete_all_movies()
             await message.channel.send(f'{deleted_count} movies have been deleted.')
+
+        if message.content.startswith('!help'):
+            await message.channel.send(f'Current prefix is: ' "{prefix}\n"
+                                       'Commands are: \n'
+                                       '{prefix}addmovie to add a movie to the list\n'
+                                       '{prefix}deletemovie to remove a movie from the list\n'
+                                       '{prefix}listmovies to see the current movie list\n'
+                                       '{prefix}deleteall to remove all movies from the list\n'
+                                       '{prefix}help to see this message but thats kind of meta\n'
+
+                                       )
 
         # Think about adding multiple dice at once
         if message.content.startswith('!roll'):
@@ -257,9 +267,6 @@ def list_movies():
     return '\n'.join(movie_list)  # Separate movies with double line breaks
 
 
-
-
-
 def update_movie(movie_name, updated_name):
     db.movies.update_one({'name': movie_name}, {'$set': {'name': updated_name}})
 
@@ -280,7 +287,6 @@ def delete_movie(movie_name):
             return f'Movie "{movie_name}" deleted from the list.'
     except DuplicateKeyError:
         return 'An error occurred while deleting the movie.'
-
 
 
 excluded_words = ['the', 'to', 'a']
@@ -305,11 +311,6 @@ def capitalize_movie_name(movie_name):
 # Intents setup
 intents = discord.Intents.default()
 intents.message_content = True
-
-# Create and run the client
-client = MyClient(intents=intents)
-client.run(DISCORD_BOT_TOKEN)
-
 
 
 async def main():
