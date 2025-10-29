@@ -28,5 +28,5 @@ Add, update, delete, and pick random movies — complete with ratings and stream
 !randommovie                # Pick a random movie
 !roll <number>              # Roll a dice
 !help                       # Show help message
-
+```
 <img width="444" alt="image" src="https://github.com/kylemdonovan/moviebot/assets/97189054/33dd85d6-ac19-4977-8255-67b1a2ce8762">
