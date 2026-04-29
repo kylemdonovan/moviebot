@@ -1,11 +1,11 @@
-# 🎬 MovieBot
+# MovieBot
 
 A Discord bot that helps manage your movie list using MongoDB and TMDB.  
 Add, update, delete, and pick random movies — complete with ratings and streaming availability.
 
 ---
 
-## 🚀 Features
+## Features
 
 - Add and store movies in MongoDB  
 - Automatically fetch movie details (title, release year, rating, streaming services) from TMDB  
@@ -16,7 +16,7 @@ Add, update, delete, and pick random movies — complete with ratings and stream
 
 ---
 
-## 🧩 Commands
+## Commands
 
 ```bash
 !setprefix <new_prefix>     # Change the command prefix
